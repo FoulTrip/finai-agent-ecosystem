@@ -1,0 +1,40 @@
+name: CD Pipeline
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    name: Deploy to Google Cloud Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Google Auth
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: Build and Push Docker Images
+        run: |
+          gcloud builds submit --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/finai-frontend ./frontend
+          gcloud builds submit --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/finai-backend ./backend
+
+      - name: Deploy Frontend
+        run: |
+          gcloud run deploy finai-frontend \
+            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/finai-frontend \
+            --platform managed \
+            --region us-central1 \
+            --allow-unauthenticated
+
+      - name: Deploy Backend
+        run: |
+          gcloud run deploy finai-backend \
+            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/finai-backend \
+            --platform managed \
+            --region us-central1 \
+            --allow-unauthenticated
